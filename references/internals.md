@@ -112,3 +112,8 @@ Each doc produces exactly one row in `ingest_manifest.jsonl`:
 | `partial` | Doc point upserted, but some section chunks failed embedding (`error` field lists which sections) |
 | `skipped` | Doc-level embedding failed — nothing upserted for this doc |
 | `error` | HTML read or parse failed — nothing upserted for this doc |
+
+---
+
+For extraction algorithm design (reasoning snippets, norm citations, fact-finding
+paragraphs), see [extraction-design.md](extraction-design.md).

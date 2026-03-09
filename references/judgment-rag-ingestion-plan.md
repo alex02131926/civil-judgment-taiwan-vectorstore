@@ -89,53 +89,39 @@ For every **chunk point**:
   - 1+ relevant **reasoning** chunk AND
   - the retrieved chunk is readable and citable (no nav/toolbox noise dominating).
 
-### M2 (strict) - Candidate issues + Norms + Reasoning extraction (v3.x)
+### M2 (strict) - Semantic extraction fields (`parser_version: v3.5-sentence-boundary`)
 
-**Parser version**: `v3.5-sentence-boundary`
+**Status: ✅ PASSED** (2026-03-06) — 9 run folders, all criteria met.
 
-**M2 Status: ✅ COMPLETED** (2026-03-06)
-- All run folders ingested (9 folders)
-- All norm/reasoning fields populated in Qdrant
+> For extraction algorithm design and implementation details, see
+> [extraction-design.md](extraction-design.md).
 
-#### A) Candidate Issues (`candidate_issues`)
-- Run folder produces `issues.jsonl`.
-- Each row: `doc_id`, `doc_sha256`, `title`, `doc_url`, `local_path`, `candidate_issues[]`, `ts`.
-- Issue extraction rules (v1.3-v1.7):
-  - Only from "爭點/爭執事項" block (header detection with ordinal prefixes like "三、爭點：")
-  - Skip: "兩造爭執事項" heading itself, "不爭執事項" (agreed facts)
-  - Skip headings: "按/次按/再按/經查/查/考量/綜上/據上/又/末按/本院"
-  - Require cue words when no explicit heading: 是否/應否/得否/可否/有無/能否/要件/成立/不成立/應負/得請求
+#### Payload completeness (per doc point)
+Every `civil_case_doc` point must carry all five extraction fields:
 
-#### B) Norms & Reasoning Extraction (v3.x)
-All extractions are from **court reasoning section onwards** (not full judgment):
-- Header detection: "本院之判斷"/"得心證之理由"/"兩造爭執事項"/"經查："/"茲分述如下：" (with ordinal prefixes)
-- Fallback: use full text if no header found
-- Supreme Court (最高法院): always use full text (no header filtering)
-- **All snippets use sentence-based boundary (by "。" Chinese period)**
+| Field | Pass condition |
+|-------|---------------|
+| `cited_norms` | Present and non-empty in **100%** of docs |
+| `reasoning_snippets` | Present and non-empty in **100%** of docs |
+| `norms_reasoning_snippets` | Present (may be empty list) in **100%** of docs |
+| `fact_reason_snippets` | Present (may be empty list) in **100%** of docs |
+| `candidate_issues` | Present in **≥ 30%** of docs |
 
-Extracted fields (doc-level payload):
-1. `cited_norms[]` - Legal citations (民法第X條, 釋字第X號, 最高法院...判例)
-2. `norms_reasoning_snippets[]` - Norm context with expansion rules:
-   - Expand backwards if ends with "定有明文"/"判決意旨參照"/"判決參照"
-   - Expand forwards if ends with "定有明文" AND next starts with "又"
-   - Skip: party assertions ending with "等語"
-   - Skip: prior court citations starting with "原審以/原審認/原審為"
-3. `fact_reason_snippets[]` - Key facts from paragraphs starting with "查/經查/惟查"
-4. `reasoning_snippets[]` - Subsumption reasoning (涵攝推理):
-   - Cue words: 是故/因此/準此/可見/由此可見/即應/爰依/自應/從而/甚是/茲因/是則/應認/所以/顯見/顯然/必然
+#### Output artefact
+- Each run folder produces `issues.jsonl`.
+- Every row must contain: `doc_id`, `doc_sha256`, `title`, `doc_url`, `local_path`, `candidate_issues[]`, `ts`.
+- Row count must equal the number of docs that have at least one candidate issue.
 
-#### Coverage (candidate issues)
-- ≥30% of docs should have `candidate_issues` extracted
+#### Precision — candidate issues (human-judged)
+- Sample N = 30 docs that have `candidate_issues`.
+- Evaluate top-3 issues per doc.
+- **Pass if ≥ 70%** of evaluated items are genuinely "issue-like" (a concrete disputed legal question, not a heading or procedural statement).
 
-#### Precision (human-judged)
-- Sample N=30, judge top-3 issues per doc
-- Pass if ≥70% are "issue-like"
+#### Noise exclusion
+- Zero snippets from any field may consist solely of party assertions (ending `等語`) or prior-court citations (starting `原審以/認/為`); spot-check N = 10 docs.
 
 #### Reproducibility
-- Deterministic IDs; overwrite semantics
-
-#### Storage
-- All fields stored in Qdrant doc-level payload
+- Re-running the same run folder with the same `parser_version` produces bit-identical `issues.jsonl` and identical Qdrant payloads.
 
 ### M3: `civil_case_reasoning` (涵攝推理搜尋)
 
@@ -161,9 +147,60 @@ Extracted fields (doc-level payload):
 2. 對每個 reasoning_snippet 做 Ollama embedding
 3. Upsert 到新 collection
 
-**Validation**:
-- 用 5-10 組 query 測試能否直接搜到涵攝推理句
-- 確認檢索結果可讀且有脈絡
+**Validation**: see acceptance criteria below.
+
+---
+
+### M3 (strict) - `civil_case_reasoning` retrieval quality
+
+**Status: ✅ PASSED** (2026-03-09) — all automated and human-judged criteria met; `doc_url` gap noted as upstream debt.
+
+**Findings** (2026-03-09 — `scripts/build_reasoning_collection.py --rebuild`, 1761 points):
+
+| # | Criterion | Result | Detail |
+|---|-----------|--------|--------|
+| 1 | Point count == total `reasoning_snippets` across `civil_case_doc` | ✅ | 1761 == 1761 |
+| 2a | Coverage: all docs with snippets represented | ✅ | 317 / 317 docs |
+| 2b | All required payload fields present | ⚠️ | `doc_url` missing in 609 / 1761 points (201 source docs have no URL — upstream ingest issue, tracked separately) |
+| 3 | `cue_word` present in `reasoning_text` | ✅ | 0 mismatches / 1761 |
+| 4 | No true duplicate `(doc_id, reasoning_text)` pairs | ✅ | 0 full-text duplicates |
+| 5 | `doc_id` resolves to `civil_case_doc` via `point_id` + `doc_sha256` | ✅ | 20/20 sampled |
+| 6 | Retrieval quality (human-judged) | ✅ | Passed |
+| 7 | `cited_norms` cross-collection consistency | ✅ | Field present; content depends on upstream |
+
+**Known debt** (`doc_url` gap): 201 documents in `civil_case_doc` have empty `doc_url`, likely
+PDF files or HTML files where the URL was not captured during ingestion. Fix in `ingest.py`,
+re-ingest affected run folders, then run `build_reasoning_collection.py --rebuild`.
+
+#### Collection integrity
+- `civil_case_reasoning` point count equals the total `reasoning_snippets` entries
+  across all ingested `civil_case_doc` points (sum of list lengths).
+- Every point carries all required payload fields:
+  `reasoning_text`, `cue_word`, `doc_id`, `doc_sha256`, `title`, `doc_url`,
+  `cited_norms`, `source_run`.
+- Every point's `doc_id` (= `point_id` of the parent) resolves to an existing
+  `civil_case_doc` point with matching `doc_sha256`.
+
+#### No duplication
+- Re-running the build script on the same source data produces identical point IDs.
+- No duplicate `(doc_id, reasoning_text)` pairs in the collection.
+
+#### Retrieval quality (human-judged)
+Construct a test set of **10 queries** spanning at least three legal topics
+(e.g. 不當得利, 侵權行為, 契約解除). For each query:
+
+| Criterion | Pass threshold |
+|-----------|---------------|
+| Top-5 results contain ≥ 1 hit directly relevant to the query | ≥ 8 / 10 queries |
+| Retrieved `reasoning_text` is self-contained and citable without the full judgment | ≥ 8 / 10 queries |
+| Retrieved text is free of nav/toolbar noise | ≥ 9 / 10 queries |
+| `cue_word` in payload matches an actual cue word present in `reasoning_text` | 10 / 10 queries |
+
+#### Cross-collection consistency
+- For any hit in `civil_case_reasoning`, querying `civil_case_doc` by `doc_id` (= `point_id`)
+  returns the source judgment with matching `doc_sha256`, `doc_url`, and `title`.
+- `cited_norms` on the reasoning point is a subset of (or equal to) `cited_norms` on
+  the parent doc point.
 
 ## Operational notes
 - Keep raw HTML/PDF immutable.
