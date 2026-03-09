@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.0] — 2026-03-09
+
+First stable release. Incorporates all changes from v0.1.0 through v0.4.0; see those
+entries for the full feature history. This release marks the completion of milestones
+M0–M3 and the first version recommended for production use.
+
+### Changed
+- Minor wording fixes across documentation
+
+### Notes
+- All four milestones passed acceptance testing (M0–M3)
+- Known debt: `doc_url` missing for ~49% of ingested docs (upstream extraction issue);
+  tracked for a future patch release
+
+---
+
 ## [0.4.0] — 2026-03-09
 
 ### Added
@@ -110,7 +126,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pre-flight checks** — validates Qdrant reachability, Ollama reachability, model
   availability, and presence of archive files before starting ingestion
 
-[Unreleased]: https://github.com/alex02131926/civil-judgment-taiwan-vectorstore/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/alex02131926/civil-judgment-taiwan-vectorstore/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/alex02131926/civil-judgment-taiwan-vectorstore/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/alex02131926/civil-judgment-taiwan-vectorstore/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/alex02131926/civil-judgment-taiwan-vectorstore/releases/tag/v0.3.0
 [0.2.0]: https://github.com/alex02131926/civil-judgment-taiwan-vectorstore/releases/tag/v0.2.0
