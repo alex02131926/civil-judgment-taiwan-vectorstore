@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "civil-judgment-taiwan-vectorstore"
+abstract: >
+  An OpenClaw skill for ingesting Taiwan civil court judgments (民事判決)
+  into Qdrant using Ollama embeddings. Supports deterministic chunking,
+  section-aware parsing, metadata extraction (cited norms, reasoning snippets,
+  candidate issues), and incremental upserts for RAG-based legal research.
+license: MIT
+date-released: "2026-03-05"
+version: "1.0.0"
+repository-code: https://github.com/alex02131926/civil-judgment-taiwan-vectorstore
+authors:
+  - given-name: "Yu-Shao"
+    family-name: "Liu"
+    email: "seanysliu@pm.me"
+keywords:
+  - taiwan
+  - legal-tech
+  - rag
+  - qdrant
+  - ollama
+  - judicial-yuan
+  - civil-judgment
+  - nlp
+  - chinese
